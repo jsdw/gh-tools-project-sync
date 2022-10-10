@@ -1,0 +1,18 @@
+[package]
+name = "parity-project-sync"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.65"
+clap = { version = "4.0.9", features = ["derive"] }
+reqwest = { version = "0.11.12", features = ["json"] }
+serde = { version = "1.0.145", features = ["derive"] }
+serde_json = { version = "1.0.85", features = ["raw_value"] }
+thiserror = "1.0.37"
+time = { version = "0.3.15", features = ["serde", "serde-well-known", "formatting"] }
+tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1.37"
+tracing-subscriber = "0.3.16"
