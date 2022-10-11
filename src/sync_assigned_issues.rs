@@ -1,4 +1,5 @@
 use crate::api::{ Api, query::{ self, project_details::ToolsProject }, mutation };
+use tracing::{ info_span, info };
 
 pub struct SyncAssignedIssuesOpts<'a> {
    pub api: &'a Api,
@@ -16,6 +17,9 @@ pub async fn sync_assigned_issues(opts: SyncAssignedIssuesOpts<'_>) -> Result<()
         team_members,
         org
     } = opts;
+
+    let span = info_span!("sync_assigned_issues");
+    let _ = span.enter();
 
     // the id of the status column we want to get items for:
     let status_field_value_id = project_details.status.options
@@ -43,6 +47,13 @@ pub async fn sync_assigned_issues(opts: SyncAssignedIssuesOpts<'_>) -> Result<()
         .filter(|item| !assigned_issue_ids.iter().any(|issue| issue == &item.content_id))
         .map(|item| &*item.item_id)
         .collect();
+
+    if !issue_ids_to_add.is_empty() {
+        info!("✅ creating {} items on project board", issue_ids_to_add.len());
+    }
+    if !item_ids_to_remove.is_empty() {
+        info!("❌ removing {} items on project board", item_ids_to_remove.len());
+    }
 
     for issue_id in issue_ids_to_add {
         let item_id = mutation::add_item_to_project::run(

@@ -80,7 +80,7 @@ async fn main() -> Result<(), anyhow::Error> {
         org: ORG,
     }).await?;
 
-    // Sync PRs needing review
+    // Sync PRs needing review:
     sync_prs_needing_review(SyncPrsNeedingReviewOpts {
         api: &api,
         project_details: &project_details.tools,
@@ -91,14 +91,3 @@ async fn main() -> Result<(), anyhow::Error> {
 
     Ok(())
 }
-
-// - Get all items in team project board
-// - get project details so we know what statuses they all are in.
-//
-// For issues assigned to team members:
-// - search to find the issue IDs
-// - find the items in the "Assigned" column; remove any with issue IDs that don't match. add any not found.
-//
-// For issues needing review:
-// - search to find issues with tools-team as a reviewer
-// - find the items in the "Needs Review" column; remove any with issue IDs that don't match and add any not found.
