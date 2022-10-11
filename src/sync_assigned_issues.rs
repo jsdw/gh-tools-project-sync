@@ -49,10 +49,10 @@ pub async fn sync_assigned_issues(opts: SyncAssignedIssuesOpts<'_>) -> Result<()
         .collect();
 
     if !issue_ids_to_add.is_empty() {
-        info!("✅ creating {} items on project board", issue_ids_to_add.len());
+        info!("✅ creating {} 'assigned issue' items on project board", issue_ids_to_add.len());
     }
     if !item_ids_to_remove.is_empty() {
-        info!("❌ removing {} items on project board", item_ids_to_remove.len());
+        info!("❌ removing {} 'assigned issue' items on project board", item_ids_to_remove.len());
     }
 
     for issue_id in issue_ids_to_add {
