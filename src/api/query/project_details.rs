@@ -6,6 +6,7 @@ const PROJECTS_QUERY: &str = r#"
         organization(login: $org) {
             tools: projectV2(number: $tools_project) {
                 id
+                number,
                 status: field(name:"Status") {
                     ... on ProjectV2SingleSelectField {
                         id
@@ -19,6 +20,7 @@ const PROJECTS_QUERY: &str = r#"
             }
             roadmap: projectV2(number: $roadmap_project) {
                 id
+                number,
                 status: field(name:"Status") {
                     ... on ProjectV2SingleSelectField {
                         id
@@ -63,12 +65,14 @@ pub struct Projects {
 #[derive(Debug, serde::Deserialize)]
 pub struct ToolsProject {
     pub id: String,
+    pub number: usize,
     pub status: Field
 }
 
 #[derive(Debug, serde::Deserialize)]
 pub struct RoadmapProject {
     pub id: String,
+    pub number: usize,
     pub status: Field,
     pub team: Field,
     pub deadline: Field,

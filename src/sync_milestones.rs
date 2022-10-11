@@ -1,20 +1,18 @@
-use crate::api::{ Api, query::{self, project_details::{RoadmapProject, ToolsProject}, milestones::Milestone}, mutation, common::State };
+use crate::api::{ Api, query::{self, project_details::{Projects, RoadmapProject, ToolsProject}, milestones::Milestone}, mutation, common::State };
 use tracing::{ info_span, warn, info };
 
 #[derive(Debug, Copy, Clone)]
 pub struct SyncMilestoneOpts<'a> {
     pub api: &'a Api,
+    /// Details abotu the tools and roadmap project
+    pub project_details: &'a Projects,
     /// The org in which the repos we're talking about live.
     pub org: &'a str,
-    /// Number for the "local"/team project board we want to add milestones to.
-    pub local_project_number: usize,
     /// Issues synced to the local project will be given whichever status has a name starting with this.
     pub local_project_milestone_status: &'a str,
     /// Name of the repo that we'll create the issues in which are kept in sync with
     /// our milestones and are shown in the project boards.
     pub local_issue_repo_name: &'a str,
-    /// Number of the public parity roadmap project.
-    pub roadmap_project_number: usize,
     /// Name of your team as it appears on the parity roadmap project.
     pub roadmap_team_name: &'a str,
     /// A list of repos to find and sync milestones in.
@@ -25,17 +23,17 @@ pub struct SyncMilestoneOpts<'a> {
 pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::Error> {
     let SyncMilestoneOpts {
         api,
+        project_details,
         org,
-        local_project_number,
         local_project_milestone_status,
         local_issue_repo_name,
-        roadmap_project_number,
         roadmap_team_name,
         repos_to_sync
     } = opts;
 
-    // Details for the tools and roadmap projects that we'll find useful:
-    let project_details = query::project_details::run(&api, org, local_project_number, roadmap_project_number).await?;
+    let local_project_number = project_details.tools.number;
+    let roadmap_project_number = project_details.roadmap.number;
+
     // Details for the repo that will hold the issues that are kept in sync with milestones:
     let project_repo = query::project_repo::run(&api, org, local_issue_repo_name, local_project_number, roadmap_project_number).await?;
     // All of the milestones found in target repositories:
@@ -93,7 +91,7 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                             let do_update_status = tools_project.status_id.as_deref() != Some(expected_status_id);
                             if do_update_status {
                                 info!("☑️  updating local project status");
-                                mutation::update_issue_field_in_project::run(
+                                mutation::update_item_field_in_project::run(
                                     &api,
                                     &project_details.tools.id,
                                     &tools_project.item_id,
@@ -120,14 +118,14 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                             if !is_milestone_public {
                                 // ah but we don't want it to be public now, so remove it from the roadmap.
                                 info!("❌ removing from public roadmap");
-                                mutation::remove_issue_from_project::run(&api, &project_details.roadmap.id, &roadmap_project.item_id).await?;
+                                mutation::remove_item_from_project::run(&api, &project_details.roadmap.id, &roadmap_project.item_id).await?;
                             } else {
                                 // sync status
-                                let expected_status_id = get_roadmap_project_status_id(&project_details.roadmap, expected_state)?;
+                                let expected_status_id = get_roadmap_project_state_id(&project_details.roadmap, expected_state)?;
                                 let do_update_status = roadmap_project.status_id.as_deref() != Some(expected_status_id);
                                 if do_update_status {
                                     info!("☑️  updating public roadmap item status");
-                                    mutation::update_issue_field_in_project::run(
+                                    mutation::update_item_field_in_project::run(
                                         &api,
                                         &project_details.roadmap.id,
                                         &roadmap_project.item_id,
@@ -141,7 +139,7 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                                 let do_update_team = roadmap_project.team_id.as_deref() != Some(expected_team_id);
                                 if do_update_team {
                                     info!("☑️  updating public roadmap item team");
-                                    mutation::update_issue_field_in_project::run(
+                                    mutation::update_item_field_in_project::run(
                                         &api,
                                         &project_details.roadmap.id,
                                         &roadmap_project.item_id,
@@ -160,7 +158,7 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                                     match expected_deadline {
                                         Some(deadline) => {
                                             info!("☑️  updating public roadmap item deadline");
-                                            mutation::update_issue_field_in_project::run(
+                                            mutation::update_item_field_in_project::run(
                                                 &api,
                                                 &project_details.roadmap.id,
                                                 &roadmap_project.item_id,
@@ -170,7 +168,7 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                                         },
                                         None => {
                                             warn!("🛑 milestone due date not found on roadmap");
-                                            mutation::clear_issue_field_in_project::run(
+                                            mutation::clear_item_field_in_project::run(
                                                 &api,
                                                 &project_details.roadmap.id,
                                                 &roadmap_project.item_id,
@@ -244,8 +242,8 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
 }
 
 async fn add_tools_project_item(api: &Api, issue_id: &str, tools_project: &ToolsProject, milestone_status_name: &str) -> Result<(), anyhow::Error> {
-    let tools_item_id = mutation::assign_issue_to_project::run(&api, &issue_id, &tools_project.id).await?;
-    mutation::update_issue_field_in_project::run(
+    let tools_item_id = mutation::add_item_to_project::run(&api, &issue_id, &tools_project.id).await?;
+    mutation::update_item_field_in_project::run(
         &api,
         &tools_project.id,
         &tools_item_id,
@@ -256,19 +254,19 @@ async fn add_tools_project_item(api: &Api, issue_id: &str, tools_project: &Tools
 }
 
 async fn add_roadmap_project_item(api: &Api, issue_id: &str, milestone: &Milestone, roadmap_project: &RoadmapProject, roadmap_team_name: &str) -> Result<(), anyhow::Error> {
-    let roadmap_item_id = mutation::assign_issue_to_project::run(&api, &issue_id, &roadmap_project.id).await?;
+    let roadmap_item_id = mutation::add_item_to_project::run(&api, &issue_id, &roadmap_project.id).await?;
 
     // Status (Open or Closed as per the milestone)
-    mutation::update_issue_field_in_project::run(
+    mutation::update_item_field_in_project::run(
         &api,
         &roadmap_project.id,
         &roadmap_item_id,
         &roadmap_project.status.id,
-        get_roadmap_project_status_id(&roadmap_project, milestone.state)?
+        get_roadmap_project_state_id(&roadmap_project, milestone.state)?
     ).await?;
 
     // Team (Tools, or as configured above)
-    mutation::update_issue_field_in_project::run(
+    mutation::update_item_field_in_project::run(
         &api,
         &roadmap_project.id,
         &roadmap_item_id,
@@ -283,7 +281,7 @@ async fn add_roadmap_project_item(api: &Api, issue_id: &str, milestone: &Milesto
         .and_then(|due| try_get_matching_roadmap_deadline(&roadmap_project, &due.time));
     match due_field_id {
         Some(due_field_id) => {
-            mutation::update_issue_field_in_project::run(
+            mutation::update_item_field_in_project::run(
                 &api,
                 &roadmap_project.id,
                 &roadmap_item_id,
@@ -293,7 +291,7 @@ async fn add_roadmap_project_item(api: &Api, issue_id: &str, milestone: &Milesto
         },
         None => {
             warn!("🛑 milestone due date not found on roadmap");
-            mutation::clear_issue_field_in_project::run(
+            mutation::clear_item_field_in_project::run(
                 &api,
                 &roadmap_project.id,
                 &roadmap_item_id,
@@ -313,7 +311,7 @@ fn get_tools_project_status_id<'a>(details: &'a query::project_details::ToolsPro
         .ok_or(anyhow::anyhow!("Could not find the '{milestone_status_name}' status in the local project board"))
 }
 
-fn get_roadmap_project_status_id(details: &query::project_details::RoadmapProject, state: State) -> Result<&str, anyhow::Error> {
+fn get_roadmap_project_state_id(details: &query::project_details::RoadmapProject, state: State) -> Result<&str, anyhow::Error> {
     let state_str = match state {
         State::CLOSED => "closed",
         State::OPEN => "open"

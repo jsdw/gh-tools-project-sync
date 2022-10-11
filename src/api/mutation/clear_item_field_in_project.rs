@@ -2,7 +2,7 @@ use crate::api::Api;
 use crate::variables;
 
 const MUTATION: &str = r#"
-    mutation ClearFieldValue($item_id:ID!, $project_id:ID!, $field_id:ID!) {
+    mutation ClearItemFieldValue($item_id:ID!, $project_id:ID!, $field_id:ID!) {
         clearProjectV2ItemFieldValue(input:{
             itemId:$item_id,
             projectId:$project_id,

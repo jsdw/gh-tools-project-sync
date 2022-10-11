@@ -2,7 +2,7 @@ use crate::api::Api;
 use crate::variables;
 
 const MUTATION: &str = r#"
-    mutation RemoveIssueFromProject($project_id:ID!, $item_id:ID!) {
+    mutation RemoveItemFromProject($project_id:ID!, $item_id:ID!) {
         deleteProjectV2Item(input:{projectId:$project_id, itemId:$item_id}) {
             deletedItemId
         }
@@ -10,7 +10,7 @@ const MUTATION: &str = r#"
 "#;
 
 /// Returns an "item ID" which represents the project card.
-pub async fn run(api: &Api, project_id:&str, item_id: &str) -> Result<(), anyhow::Error> {
+pub async fn run(api: &Api, project_id: &str, item_id: &str) -> Result<(), anyhow::Error> {
     #[derive(serde::Deserialize)]
     struct QueryResult {}
 
