@@ -50,32 +50,31 @@ pub async fn sync_assigned_issues(opts: SyncAssignedIssuesOpts<'_>) -> Result<()
 
     if !issue_ids_to_add.is_empty() {
         info!("✅ creating {} 'assigned issue' items on project board", issue_ids_to_add.len());
+        for issue_id in issue_ids_to_add {
+            let item_id = mutation::add_item_to_project::run(
+                api,
+                issue_id,
+                &project_details.id
+            ).await?;
+            mutation::update_item_field_in_project::run(
+                api,
+                &project_details.id,
+                &item_id,
+                &project_details.status.id,
+                status_field_value_id
+            ).await?;
+        }
     }
+
     if !item_ids_to_remove.is_empty() {
         info!("❌ removing {} 'assigned issue' items on project board", item_ids_to_remove.len());
-    }
-
-    for issue_id in issue_ids_to_add {
-        let item_id = mutation::add_item_to_project::run(
-            api,
-            issue_id,
-            &project_details.id
-        ).await?;
-        mutation::update_item_field_in_project::run(
-            api,
-            &project_details.id,
-            &item_id,
-            &project_details.status.id,
-            status_field_value_id
-        ).await?;
-    }
-
-    for item_id in item_ids_to_remove {
-        mutation::remove_item_from_project::run(
-            api,
-            &project_details.id,
-            item_id
-        ).await?;
+        for item_id in item_ids_to_remove {
+            mutation::remove_item_from_project::run(
+                api,
+                &project_details.id,
+                item_id
+            ).await?;
+        }
     }
 
     Ok(())

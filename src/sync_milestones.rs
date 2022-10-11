@@ -87,28 +87,37 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                     match &issue.tools_project {
                         // ## there's already a tools project item; keep it in sync.
                         Some(tools_project) => {
-                            let expected_status_id = get_tools_project_status_id(&project_details.tools, local_project_milestone_status)?;
-                            let do_update_status = tools_project.status_id.as_deref() != Some(expected_status_id);
-                            if do_update_status {
-                                info!("☑️  updating local project status");
-                                mutation::update_item_field_in_project::run(
-                                    &api,
-                                    &project_details.tools.id,
-                                    &tools_project.item_id,
-                                    &project_details.tools.status.id,
-                                    expected_status_id
-                                ).await?;
+                            if milestone.state == State::CLOSED {
+                                // ah but we closed the issue; remove it from our roadmap to keep it tidy.
+                                info!("❌ removing from local roadmap");
+                                mutation::remove_item_from_project::run(&api, &project_details.tools.id, &tools_project.item_id).await?;
+                            } else {
+                                let expected_status_id = get_tools_project_status_id(&project_details.tools, local_project_milestone_status)?;
+                                let do_update_status = tools_project.status_id.as_deref() != Some(expected_status_id);
+                                if do_update_status {
+                                    info!("☑️  updating local project status");
+                                    mutation::update_item_field_in_project::run(
+                                        &api,
+                                        &project_details.tools.id,
+                                        &tools_project.item_id,
+                                        &project_details.tools.status.id,
+                                        expected_status_id
+                                    ).await?;
+                                }
                             }
+
                         },
                         // ## No tools project item; make one.
                         None => {
-                            info!("✅ creating issue");
-                            add_tools_project_item(
-                                &api,
-                                &issue.id,
-                                &project_details.tools,
-                                local_project_milestone_status
-                            ).await?;
+                            if milestone.state == State::OPEN {
+                                info!("✅ creating issue");
+                                add_tools_project_item(
+                                    &api,
+                                    &issue.id,
+                                    &project_details.tools,
+                                    local_project_milestone_status
+                                ).await?;
+                            }
                         }
                     }
 
@@ -116,7 +125,7 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                         // ## there's already a roadmap project item; keep it in sync.
                         Some(roadmap_project) => {
                             if !is_milestone_public {
-                                // ah but we don't want it to be public now, so remove it from the roadmap.
+                                // ah but we don't want it to be public now, so remove it from the roadmap entirely.
                                 info!("❌ removing from public roadmap");
                                 mutation::remove_item_from_project::run(&api, &project_details.roadmap.id, &roadmap_project.item_id).await?;
                             } else {
@@ -181,7 +190,7 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                         },
                         // ## No roadmap project item? make one if needed.
                         None => {
-                            if is_milestone_public {
+                            if is_milestone_public && milestone.state == State::OPEN {
                                 info!("✅ adding to public roadmap");
                                 add_roadmap_project_item(
                                     &api,

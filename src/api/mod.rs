@@ -34,7 +34,7 @@ impl Api {
                 .trim_end()
                 .trim_end_matches('{')
                 .trim_end();
-            format!("Error with {first_line}: {msg}")
+            format!("{first_line}: {msg}")
         };
 
         let res = self.client
@@ -60,9 +60,14 @@ impl Api {
         if status.is_success() {
             // Broken down the steps to allow better debugging in case of issue:
             let text = res.text().await
-                .with_context(|| err_context("Failed to obtain string response"))?;
+                .with_context(|| {
+                    err_context("Failed to obtain string response")
+                })?;
             let body: QueryResult<Res> = serde_json::from_str(&text)
-                .with_context(|| err_context("Failed to decode response"))?;
+                .with_context(|| {
+                    println!("{text}");
+                    err_context("Failed to decode response")
+                })?;
             match body {
                 QueryResult::Ok { data } => Ok(data),
                 QueryResult::Err { errors } => {

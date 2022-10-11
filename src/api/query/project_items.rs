@@ -36,6 +36,7 @@ const PROJECT_ITEMS: &str = r#"
     }
 "#;
 
+#[derive(Debug)]
 pub struct ProjectItem {
     /// ID of the item itself:
     pub item_id: String,
@@ -66,7 +67,7 @@ pub async fn run(api: &Api, org: &str, project_number: usize) -> Result<Vec<Proj
     }
     #[derive(serde::Deserialize)]
     struct QueryPageInfo {
-        end_cursor: String,
+        end_cursor: Option<String>,
         has_next_page: bool
     }
     #[derive(serde::Deserialize)]
@@ -83,16 +84,16 @@ pub async fn run(api: &Api, org: &str, project_number: usize) -> Result<Vec<Proj
     struct QueryItemFieldValues {
         nodes: Vec<QueryItemFieldValue>
     }
-    #[derive(serde::Deserialize)]
+    #[derive(serde::Deserialize, Debug)]
     #[serde(untagged)]
     enum QueryItemFieldValue {
-        Unknown {},
         SingleSelectField {
             option_id: String,
             field: QueryItemFieldDetails
-        }
+        },
+        Unknown {}
     }
-    #[derive(serde::Deserialize)]
+    #[derive(serde::Deserialize, Debug)]
     struct QueryItemFieldDetails {
         name: String
     }
@@ -125,7 +126,7 @@ pub async fn run(api: &Api, org: &str, project_number: usize) -> Result<Vec<Proj
         if !res.organization.project.items.page_info.has_next_page {
             break
         } else {
-            cursor = Some(res.organization.project.items.page_info.end_cursor);
+            cursor = res.organization.project.items.page_info.end_cursor;
         }
     }
 

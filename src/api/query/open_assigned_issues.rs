@@ -24,8 +24,10 @@ pub async fn run(api: &Api, org: &str, user_names: &[String]) -> Result<Vec<Stri
         nodes: Vec<QueryIssue>
     }
     #[derive(serde::Deserialize)]
-    struct QueryIssue {
-        id: String
+    #[serde(untagged)]
+    enum QueryIssue {
+        Issue { id: String },
+        Unknown {}
     }
 
     // Build our search query. Want output a bit like:
@@ -42,5 +44,15 @@ pub async fn run(api: &Api, org: &str, user_names: &[String]) -> Result<Vec<Stri
         "query": query
     )).await?;
 
-    Ok(res.search.nodes.into_iter().map(|n| n.id).collect())
+    let issue_ids = res.search.nodes
+        .into_iter()
+        .filter_map(|n| {
+            match n {
+                QueryIssue::Issue { id } => Some(id),
+                _ => None
+            }
+        })
+        .collect();
+
+    Ok(issue_ids)
 }

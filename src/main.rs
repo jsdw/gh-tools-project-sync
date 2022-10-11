@@ -23,13 +23,14 @@ const TEAM_MEMBERS: &[&str] = &[
     "niklasad1",
     "Xanewok",
     "lexnv",
+    "TarikGul",
 ];
 const PROJECT_REPO_NAME: &str = "tools-team-milestones";
 const TOOLS_ROADMAP_PROJECT_NUMBER: usize = 22;
 const PUBLIC_ROADMAP_PROJECT_NUMBER: usize = 27;
 const ROADMAP_TEAM_NAME: &str = "Tools";
 const MILESTONE_STATUS_NAME: &str = "milestone";
-const ASSIGNED_ISSUE_STATUS_NAME: &str = "assigned";
+const ASSIGNED_ISSUE_STATUS_NAME: &str = "in progress";
 const NEEDS_REVIEW_STATUS_NAME: &str = "needs review";
 const TOOLS_TEAM_GROUP: &str = "paritytech/tools-team";
 
