@@ -1,5 +1,23 @@
 # Github Milestone => Project Sync
 
-This code is somewhat hardcoded to a specific use case and is provided as-is.
+**This code is somewhat hardcoded to a specific use case, so feature requests and such for other use cases will be closed.**
 
-Its job is to take Github milestones from specific repositories and sync them to issues which are then displayed on a couple of project boards.
+When this tool is running, the following rules apply:
+
+- Any milestones that you create in the watched repositories will be synced to our local project board.
+  - You can manually add issues to the roadmap and project board too directly and they will be left alone.
+- If the milestone title begins with `[public]`, the milestone will also be synced to the public roadmap.
+  - If you want the milestone to be public, remember to give it a **Due Date** as well (ideally one that is
+    currently visible on the public roadmap).
+- If you're working on an issue, assign it to yourself and it'll show up on the local project board.
+- If you have an open PR you'd like reviewed, assign the `tools-team` group as a reviewer and it'll show up on our local project board as needing review.
+
+## Dev notes
+
+This tool requires a **github access token** to be provided via an env var that has permission to create, edit and delete issues and project items.
+
+The tool is stateless, and on each run will ensure that the above are kept in sync. It tries to limit the number of API calls made on each run to only those that are absolutely necessary.
+
+The idea is that this can run at some time interval (eg every 15 minutes) as a cron job in order to keep things synced to project boards.
+
+The tool uses the github GraphQL API. It's _very_ highly recommended that in order to develop and debug, you install something like `GraphiQL` (with URL `https://api.github.com/graphql` and `Authorization: bearer $TOKEN` header), which makes it possible to explore the Github GraphQL API and create/debug calls.

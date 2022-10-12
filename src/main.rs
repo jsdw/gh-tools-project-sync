@@ -8,7 +8,11 @@ use sync_milestones::{ sync_milestones, SyncMilestoneOpts };
 use sync_assigned_issues::{ sync_assigned_issues, SyncAssignedIssuesOpts };
 use sync_prs_needing_review::{ sync_prs_needing_review, SyncPrsNeedingReviewOpts };
 
+// The organisation to search for projects, repos and issues in.
 const ORG: &str = "paritytech";
+
+// The rpositories within the above organisation that we will
+// sync milestones from.
 const REPO_NAMES: &[&str] = &[
     "subxt",
     "jsonrpsee",
@@ -18,6 +22,9 @@ const REPO_NAMES: &[&str] = &[
     "scale-bits",
     "substrate-telemetry",
 ];
+
+// Team members that we'll search for assigned issues for to
+// sync those to our local project board.
 const TEAM_MEMBERS: &[&str] = &[
     "jsdw",
     "niklasad1",
@@ -25,14 +32,35 @@ const TEAM_MEMBERS: &[&str] = &[
     "lexnv",
     "TarikGul",
 ];
+
+// The repository within the organisation above to use to create
+// issues in whose sole purpose is to be kept in sync with milestones
+// and be something that can be added to project boards.
 const PROJECT_REPO_NAME: &str = "tools-team-milestones";
-const TOOLS_ROADMAP_PROJECT_NUMBER: usize = 22;
-const PUBLIC_ROADMAP_PROJECT_NUMBER: usize = 27;
-const ROADMAP_TEAM_NAME: &str = "Tools";
+
+// The number of the "local" project. This project is expected to have
+// a "Status" field with statuses beginning with the following text.
+const LOCAL_PROJECT_NUMBER: usize = 22;
+
+// Statuses to look for in the local project to sync lists of milestones,
+// issues assigned to team members, and PRs needing review from the team.
 const MILESTONE_STATUS_NAME: &str = "milestone";
 const ASSIGNED_ISSUE_STATUS_NAME: &str = "in progress";
 const NEEDS_REVIEW_STATUS_NAME: &str = "needs review";
+
+// Any PRs assigned this group to review them will show up in the NEEDS_REVIEW
+// status on the local project board.
 const TOOLS_TEAM_GROUP: &str = "paritytech/tools-team";
+
+// The public roadmap project number. We implicitly expect this to have three
+// fields:
+// - Status (a single select with values like "open" and "closed")
+// - Deadline (a single select field with dates in the format "Aug 2022" (3 letter month then 4 digit year))
+// - Team (a single select field with team names)
+const PUBLIC_ROADMAP_PROJECT_NUMBER: usize = 27;
+
+// The team name to set on public roadmap issues in the "team" single select field.
+const ROADMAP_TEAM_NAME: &str = "Tools";
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -57,7 +85,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let project_details = api::query::project_details::run(
         &api,
         ORG,
-        TOOLS_ROADMAP_PROJECT_NUMBER,
+        LOCAL_PROJECT_NUMBER,
         PUBLIC_ROADMAP_PROJECT_NUMBER
     ).await?;
 
