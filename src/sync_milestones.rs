@@ -60,7 +60,19 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
 
             // The details we want the corresponding issue to have:
             let expected_title = format!("[{repo}] {milestone_title}");
-            let expected_body = format!("{milestone_body}\n\n---\n\nHere is the corresponding GitHub milestone:\n\n{milestone_url}\n");
+            // NOTE: Immediately after the URl we look for -->. Why? so that urls ending in eg /1 and /10
+            // are not seen to be equal and screw up syncing.
+            let expected_match_slug = format!("AUTO GENERATED FROM {milestone_url}-->");
+            let expected_body = format!("\
+                <!-- DO NOT EDIT. {expected_match_slug}\n\
+                {milestone_body}\n\
+                \n\
+                ---\n\
+                \n\
+                Here is the corresponding GitHub milestone:\n\
+                \n\
+                {milestone_url}\n\
+            ");
             let expected_state = milestone.state;
 
             // We match milestones to issues by looking for issues that link to the milestone.
@@ -69,7 +81,7 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
             let issue = project_repo
                 .issues
                 .iter()
-                .find(|issue| issue.description.contains(&milestone_url));
+                .find(|issue| issue.description.contains(&expected_match_slug));
 
             match issue {
                 // # There is an issue which lines up with the milestone already; make sure it's in sync!
