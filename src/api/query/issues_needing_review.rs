@@ -2,8 +2,15 @@ use crate::api::Api;
 use crate::variables;
 
 const NEEDS_REVIEW: &str = r#"
-    query IssuesNeedingTeamReview($query:String!) {
-        search(last:100, query:$query, type:ISSUE) {
+    query IssuesNeedingTeamReview($mentions_query:String!, $assigned_query:String!) {
+        mentions: search(last:100, query:$mentions_query, type:ISSUE) {
+            nodes {
+                ... on PullRequest {
+                    id
+                }
+            }
+        }
+        assigned: search(last:100, query:$assigned_query, type:ISSUE) {
             nodes {
                 ... on PullRequest {
                     id
@@ -13,11 +20,12 @@ const NEEDS_REVIEW: &str = r#"
     }
 "#;
 
-pub async fn run(api: &Api, team_group_name: &str) -> Result<Vec<String>, anyhow::Error> {
+pub async fn run(api: &Api, org: &str, team_group_name: &str) -> Result<Vec<String>, anyhow::Error> {
     // The shape we want to deserialize to.
     #[derive(serde::Deserialize)]
     struct QueryResult {
-        search: QuerySearch
+        mentions: QuerySearch,
+        assigned: QuerySearch
     }
     #[derive(serde::Deserialize)]
     struct QuerySearch {
@@ -28,13 +36,17 @@ pub async fn run(api: &Api, team_group_name: &str) -> Result<Vec<String>, anyhow
         id: String
     }
 
-    // Build our search query. Want output a bit like:
-    // "is:pr is:open team-review-requested:paritytech/tools-team"
-    let query = format!("is:pr is:open team-review-requested:{team_group_name}");
+    // Find all PRs where the tools team is an assigned reviewer. These will disappear once anybody has reviewed them but might at least
+    // help to catch some PRs we've been asked to review (perhaps on external repos).
+    let assigned_query = format!("is:pr is:open draft:false sort:updated-desc org:{org} -team:{team_group_name} team-review-requested:{team_group_name}");
+    // Find all PRs where our team group is in the body (why? because if you request a review from a team, the team disappears as soon as one
+    // person has reviewed the PR, and that's no good becasue we want the PR to show up until merged)
+    let mentions_query = format!("is:pr is:open draft:false sort:updated-desc org:{org} in:body '{team_group_name}'");
 
     let res: QueryResult = api.query(NEEDS_REVIEW, variables!(
-        "query": query
+        "assigned_query": assigned_query,
+        "mentions_query": mentions_query
     )).await?;
 
-    Ok(res.search.nodes.into_iter().map(|n| n.id).collect())
+    Ok(res.mentions.nodes.into_iter().chain(res.assigned.nodes).map(|n| n.id).collect())
 }

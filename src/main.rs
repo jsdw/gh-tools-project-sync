@@ -31,6 +31,7 @@ const TEAM_MEMBERS: &[&str] = &[
     "Xanewok",
     "lexnv",
     "TarikGul",
+    "marshacb",
 ];
 
 // The repository within the organisation above to use to create

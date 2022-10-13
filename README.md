@@ -21,3 +21,13 @@ The tool is stateless, and on each run will ensure that the above are kept in sy
 The idea is that this can run at some time interval (eg every 15 minutes) as a cron job in order to keep things synced to project boards.
 
 The tool uses the github GraphQL API. It's _very_ highly recommended that in order to develop and debug, you install something like `GraphiQL` (with URL `https://api.github.com/graphql` and `Authorization: bearer $TOKEN` header), which makes it possible to explore the Github GraphQL API and create/debug calls.
+
+### Cross compiling from a Mac
+
+Just because I'm on a mac and want to compile this for linux boxes:
+
+```
+brew install FiloSottile/musl-cross/musl-cross
+rustup target add x86_64-unknown-linux-musl
+TARGET_CC=x86_64-linux-musl-gcc cargo build --release --target x86_64-unknown-linux-musl
+```
