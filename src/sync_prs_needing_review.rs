@@ -6,6 +6,8 @@ pub struct SyncPrsNeedingReviewOpts<'a> {
     pub project_details: &'a ToolsProject,
     pub field_status_value_name: &'a str,
     pub team_group_name: &'a str,
+    pub team_members: &'a [String],
+    pub team_repos: &'a [String],
     pub org: &'a str
 }
 
@@ -15,6 +17,8 @@ pub async fn sync_prs_needing_review(opts: SyncPrsNeedingReviewOpts<'_>) -> Resu
         project_details,
         field_status_value_name,
         team_group_name,
+        team_members,
+        team_repos,
         org
     } = opts;
 
@@ -29,7 +33,7 @@ pub async fn sync_prs_needing_review(opts: SyncPrsNeedingReviewOpts<'_>) -> Resu
         .ok_or(anyhow::anyhow!("Could not find the '{field_status_value_name}' status in the local project board"))?;
 
     // Get all PRs needing review from the board:
-    let issues_needing_review = query::issues_needing_review::run(api, opts.org, team_group_name).await?;
+    let issues_needing_review = query::issues_needing_review::run(api, org, team_group_name, team_members, team_repos).await?;
     // Get all of the items currently on the board in the column we care about:
     let items: Vec<_> = query::project_items::run(api, org, project_details.number)
         .await?

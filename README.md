@@ -10,7 +10,10 @@ When this tool is running, the following rules apply:
   - If you want the milestone to be public, remember to give it a **Due Date** as well (ideally one that is
     currently visible on the public roadmap).
 - If you're working on an issue, assign it to yourself and it'll show up on the local project board.
-- If you have an open PR you'd like reviewed, assign the `tools-team` group as a reviewer and it'll show up on our local project board as needing review.
+- If you have an open PR you'd like reviewed:
+  - Open PRs in team projects created by team members will show up on the board automatically.
+  - Any open PRs in the organisation mentioning the github team group in their description will show up.
+  - Any open PRs where the team group is an assigned reviewer will show up (but note; github removes the assigned review once anybody reviews the PR, which would lead to it being removed from the project board again).
 
 ## Dev notes
 

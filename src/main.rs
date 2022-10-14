@@ -116,6 +116,8 @@ async fn main() -> Result<(), anyhow::Error> {
         project_details: &project_details.tools,
         field_status_value_name: NEEDS_REVIEW_STATUS_NAME,
         team_group_name: TOOLS_TEAM_GROUP,
+        team_members: &team_members,
+        team_repos: &repo_names,
         org: ORG,
     }).await?;
 
