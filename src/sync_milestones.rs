@@ -354,13 +354,32 @@ fn get_roadmap_project_team_id<'a>(details: &'a query::project_details::RoadmapP
 }
 
 fn try_get_matching_roadmap_deadline<'a>(details: &'a query::project_details::RoadmapProject, date: &time::OffsetDateTime) -> Option<&'a str> {
-    let format = time::format_description::parse("[month repr:short] [year]")
-        .expect("should be valid date format");
-    let date_str = date.format(&format)
-        .expect("date should format properly");
+    //// We can sync to monthly columns like `Jan 2023`, `Feb 2023` etc with this:
+    // let format = time::format_description::parse("[month repr:short] [year]")
+    //     .expect("should be valid date format");
+    // let opt = date.format(&format)
+    //     .expect("date should format properly");
+
+    // But now we sync to columns like `Q1 2023`, `Q2 2023` etc, so we just need to map month to quarter.
+    let year = date.year();
+    let quarter = match date.month() {
+        time::Month::January |
+        time::Month::February |
+        time::Month::March => "Q1",
+        time::Month::April |
+        time::Month::May |
+        time::Month::June => "Q2",
+        time::Month::July |
+        time::Month::August |
+        time::Month::September => "Q3",
+        time::Month::October |
+        time::Month::November |
+        time::Month::December => "Q4",
+    };
+    let opt = format!("{quarter} {year}");
 
     details.deadline.options
         .iter()
-        .find(|o| o.name.trim().to_ascii_lowercase().starts_with(&date_str.to_ascii_lowercase()))
+        .find(|o| o.name.trim().to_ascii_lowercase().starts_with(&opt.to_ascii_lowercase()))
         .map(|o| &*o.id)
 }

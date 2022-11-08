@@ -1,11 +1,16 @@
 mod api;
+mod utils;
 mod sync_milestones;
 mod sync_assigned_issues;
+mod sync_closed_things;
+mod sync_draft_prs;
 mod sync_prs_needing_review;
 
 use api::Api;
 use sync_milestones::{ sync_milestones, SyncMilestoneOpts };
 use sync_assigned_issues::{ sync_assigned_issues, SyncAssignedIssuesOpts };
+use sync_closed_things::{ sync_closed_things, SyncClosedThingOpts };
+use sync_draft_prs::{ sync_draft_prs, SyncDraftPrOpts };
 use sync_prs_needing_review::{ sync_prs_needing_review, SyncPrsNeedingReviewOpts };
 
 // The organisation to search for projects, repos and issues in.
@@ -21,6 +26,7 @@ const REPO_NAMES: &[&str] = &[
     "scale-value",
     "scale-bits",
     "substrate-telemetry",
+    "desub",
 ];
 
 // Team members that we'll search for assigned issues for to
@@ -30,8 +36,6 @@ const TEAM_MEMBERS: &[&str] = &[
     "niklasad1",
     "Xanewok",
     "lexnv",
-    "TarikGul",
-    "marshacb",
 ];
 
 // The repository within the organisation above to use to create
@@ -47,7 +51,10 @@ const LOCAL_PROJECT_NUMBER: usize = 22;
 // issues assigned to team members, and PRs needing review from the team.
 const MILESTONE_STATUS_NAME: &str = "milestone";
 const ASSIGNED_ISSUE_STATUS_NAME: &str = "in progress";
+const DRAFT_PR_STATUS_NAME: &str = "draft prs";
 const NEEDS_REVIEW_STATUS_NAME: &str = "needs review";
+const FINISHED_PR_STATUS_NAME: &str = "closed prs";
+const FINISHED_ISSUE_STATUS_NAME: &str = "closed issues";
 
 // Any PRs assigned this group to review them will show up in the NEEDS_REVIEW
 // status on the local project board.
@@ -110,6 +117,17 @@ async fn main() -> Result<(), anyhow::Error> {
         org: ORG,
     }).await?;
 
+    // Sync draft PRs:
+    sync_draft_prs(SyncDraftPrOpts {
+        api: &api,
+        project_details: &project_details.tools,
+        field_status_value_name: DRAFT_PR_STATUS_NAME,
+        team_group_name: TOOLS_TEAM_GROUP,
+        team_members: &team_members,
+        team_repos: &repo_names,
+        org: ORG,
+    }).await?;
+
     // Sync PRs needing review:
     sync_prs_needing_review(SyncPrsNeedingReviewOpts {
         api: &api,
@@ -118,6 +136,16 @@ async fn main() -> Result<(), anyhow::Error> {
         team_group_name: TOOLS_TEAM_GROUP,
         team_members: &team_members,
         team_repos: &repo_names,
+        org: ORG,
+    }).await?;
+
+    // Sync closed issues and PRs:
+    sync_closed_things(SyncClosedThingOpts {
+        api: &api,
+        project_details: &project_details.tools,
+        closed_pr_status_name: FINISHED_PR_STATUS_NAME,
+        closed_issue_status_name: FINISHED_ISSUE_STATUS_NAME,
+        team_members: &team_members,
         org: ORG,
     }).await?;
 
