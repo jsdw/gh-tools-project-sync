@@ -123,10 +123,9 @@ pub async fn run(api: &Api, org: &str, project_number: usize) -> Result<Vec<Proj
             })
         }
 
-        if !res.organization.project.items.page_info.has_next_page {
+        cursor = res.organization.project.items.page_info.end_cursor;
+        if !res.organization.project.items.page_info.has_next_page || cursor.is_none() {
             break
-        } else {
-            cursor = res.organization.project.items.page_info.end_cursor;
         }
     }
 
