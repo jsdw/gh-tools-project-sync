@@ -23,6 +23,7 @@ const REPO_NAMES: &[&str] = &[
     "jsonrpsee",
     "soketto",
     "scale-decode",
+    "scale-encode",
     "scale-value",
     "scale-bits",
     "substrate-telemetry",
@@ -34,7 +35,6 @@ const REPO_NAMES: &[&str] = &[
 const TEAM_MEMBERS: &[&str] = &[
     "jsdw",
     "niklasad1",
-    "Xanewok",
     "lexnv",
 ];
 
