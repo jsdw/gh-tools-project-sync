@@ -6,14 +6,15 @@ const ISSUES_QUERY: &str = r#"
         search(last:100, query:$query, type:ISSUE) {
             nodes {
                 ... on Issue {
-                    id
+                    id,
+                    repository{ name }
                 }
             }
         }
     }
 "#;
 
-pub async fn run(api: &Api, org: &str, user_names: &[String]) -> Result<Vec<String>, anyhow::Error> {
+pub async fn run(api: &Api, org: &str, user_names: &[String], local_issue_repo_name: &str) -> Result<Vec<String>, anyhow::Error> {
     // The shape we want to deserialize to.
     #[derive(serde::Deserialize)]
     struct QueryResult {
@@ -24,9 +25,13 @@ pub async fn run(api: &Api, org: &str, user_names: &[String]) -> Result<Vec<Stri
         nodes: Vec<QueryIssue>
     }
     #[derive(serde::Deserialize)]
+    struct QueryRepository {
+        name: String,
+    }
+    #[derive(serde::Deserialize)]
     #[serde(untagged)]
     enum QueryIssue {
-        Issue { id: String },
+        Issue { id: String, repository: QueryRepository },
         Unknown {}
     }
 
@@ -48,7 +53,7 @@ pub async fn run(api: &Api, org: &str, user_names: &[String]) -> Result<Vec<Stri
         .into_iter()
         .filter_map(|n| {
             match n {
-                QueryIssue::Issue { id } => Some(id),
+                QueryIssue::Issue { id, repository } if repository.name != local_issue_repo_name => Some(id),
                 _ => None
             }
         })

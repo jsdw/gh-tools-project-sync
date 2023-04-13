@@ -43,7 +43,8 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
     // and make sure that the project boards and such are all in sync with them.
     for (repo, milestones) in &milestones_by_repo {
         for milestone in milestones {
-            let span = info_span!("sync_milestone", milestone.number, milestone.title);
+            let ms_state = milestone.state.to_string();
+            let span = info_span!("sync_milestone", milestone.number, milestone.title, ms_state);
             let _ = span.enter();
 
             let milestone_number = milestone.number;
@@ -169,15 +170,29 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                                     ).await?;
                                 }
 
-                                // sync deadline
+                                // sync deadline.
+                                // - will be eg `Some("Q2 2023")` if milestone has due date which is found on project board
+                                // - `None` if milestone has no due date or if due date not found on project board.
                                 let expected_deadline = milestone
                                     .due_on
                                     .as_ref()
                                     .and_then(|due| try_get_matching_roadmap_deadline(&project_details.roadmap, &due.time));
-                                let do_update_deadline = roadmap_project.deadline_id.as_deref() != expected_deadline;
-                                if do_update_deadline {
+
+                                if expected_deadline == None && milestone.state == State::CLOSED {
+                                    // no matching deadline column (or no set deadline), and the milestone is closed,
+                                    // so it's time to just remove it from the roadmap entirely.
+                                    info!("❌ removing old closed milestone from public roadmap");
+                                    mutation::remove_item_from_project::run(
+                                        &api,
+                                        &project_details.roadmap.id,
+                                        &roadmap_project.item_id
+                                    ).await?;
+                                } else if roadmap_project.deadline_id.as_deref() != expected_deadline {
+                                    // deadlines differ between milestone and roadmap project item...
                                     match expected_deadline {
                                         Some(deadline) => {
+                                            // Some deadline is set but it's different from the one on the roadmap,
+                                            // so sync the deadline to the roadmap.
                                             info!("☑️  updating public roadmap item deadline");
                                             mutation::update_item_field_in_project::run(
                                                 &api,
@@ -188,7 +203,9 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                                             ).await?;
                                         },
                                         None => {
-                                            warn!("🛑 milestone due date not found on roadmap");
+                                            // no matching deadline column (or no set deadline), but project item has a
+                                            // deadline on the roadmap, so remove said roadmap deadline to sync
+                                            warn!("🛑 milestone due date not found on roadmap, but it's still open");
                                             mutation::clear_item_field_in_project::run(
                                                 &api,
                                                 &project_details.roadmap.id,

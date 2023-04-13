@@ -36,12 +36,13 @@ const TEAM_MEMBERS: &[&str] = &[
     "jsdw",
     "niklasad1",
     "lexnv",
+    "tadeohepperle",
 ];
 
 // The repository within the organisation above to use to create
 // issues in whose sole purpose is to be kept in sync with milestones
 // and be something that can be added to project boards.
-const PROJECT_REPO_NAME: &str = "tools-team-milestones";
+const PROJECT_REPO_NAME: &str = "subxt-team-milestones";
 
 // The number of the "local" project. This project is expected to have
 // a "Status" field with statuses beginning with the following text.
@@ -58,7 +59,7 @@ const FINISHED_ISSUE_STATUS_NAME: &str = "closed issues";
 
 // Any PRs assigned this group to review them will show up in the NEEDS_REVIEW
 // status on the local project board.
-const TOOLS_TEAM_GROUP: &str = "paritytech/tools-team";
+const TOOLS_TEAM_GROUP: &str = "paritytech/subxt-team";
 
 // The public roadmap project number. We implicitly expect this to have three
 // fields:
@@ -68,7 +69,7 @@ const TOOLS_TEAM_GROUP: &str = "paritytech/tools-team";
 const PUBLIC_ROADMAP_PROJECT_NUMBER: usize = 27;
 
 // The team name to set on public roadmap issues in the "team" single select field.
-const ROADMAP_TEAM_NAME: &str = "Tools";
+const ROADMAP_TEAM_NAME: &str = "Subxt";
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -111,6 +112,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // Sync assigned issues:
     sync_assigned_issues(SyncAssignedIssuesOpts {
         api: &api,
+        local_issue_repo_name: PROJECT_REPO_NAME,
         project_details: &project_details.tools,
         field_status_value_name: ASSIGNED_ISSUE_STATUS_NAME,
         team_members: &team_members,
