@@ -1,5 +1,6 @@
 use crate::api::{ Api, query::{self, project_details::{Projects, RoadmapProject, ToolsProject}, milestones::Milestone}, mutation, common::State };
 use tracing::{ info_span, warn, info };
+use regex::Regex;
 
 #[derive(Debug, Copy, Clone)]
 pub struct SyncMilestoneOpts<'a> {
@@ -59,8 +60,15 @@ pub async fn sync_milestones(opts: SyncMilestoneOpts<'_>) -> Result<(), anyhow::
                 false => milestone_title.to_string()
             };
 
-            // The details we want the corresponding issue to have:
-            let expected_title = format!("[{repo}] {milestone_title}");
+            // The issue title we're expecting is either `[$repo] $title` normally, or if the milestone
+            // is found in our local issue repo (eg subxt-team-milestones), just the title (because these
+            // milestones are probably here to point at arbitrary repos or several places or whatever).
+            let expected_title = if repo == local_issue_repo_name {
+                milestone_title
+            } else {
+                format!("[{repo}] {milestone_title}")
+            };
+
             // NOTE: Immediately after the URl we look for -->. Why? so that urls ending in eg /1 and /10
             // are not seen to be equal and screw up syncing.
             let expected_match_slug = format!("AUTO GENERATED FROM {milestone_url}-->");
@@ -351,7 +359,7 @@ fn get_tools_project_status_id<'a>(details: &'a query::project_details::ToolsPro
 
 fn get_roadmap_project_state_id(details: &query::project_details::RoadmapProject, state: State) -> Result<&str, anyhow::Error> {
     let state_str = match state {
-        State::CLOSED => "closed",
+        State::CLOSED => "done",
         State::OPEN => "open"
     };
 
@@ -359,7 +367,7 @@ fn get_roadmap_project_state_id(details: &query::project_details::RoadmapProject
         .iter()
         .find(|o| o.name.trim().to_ascii_lowercase().starts_with(state_str))
         .map(|o| &*o.id)
-        .ok_or(anyhow::anyhow!("We expect to find a state like 'open' or 'closed' on the local project board"))
+        .ok_or(anyhow::anyhow!("We expect to find a state like 'open' or 'done' on the roadmap project board"))
 }
 
 fn get_roadmap_project_team_id<'a>(details: &'a query::project_details::RoadmapProject, team: &str) -> Result<&'a str, anyhow::Error> {
@@ -382,21 +390,102 @@ fn try_get_matching_roadmap_deadline<'a>(details: &'a query::project_details::Ro
     let quarter = match date.month() {
         time::Month::January |
         time::Month::February |
-        time::Month::March => "Q1",
+        time::Month::March => 1,
         time::Month::April |
         time::Month::May |
-        time::Month::June => "Q2",
+        time::Month::June => 2,
         time::Month::July |
         time::Month::August |
-        time::Month::September => "Q3",
+        time::Month::September => 3,
         time::Month::October |
         time::Month::November |
-        time::Month::December => "Q4",
+        time::Month::December => 4,
     };
-    let opt = format!("{quarter} {year}");
+    let quarter_year_regex = Regex::new(r#"^\s*[qQ]([0-9])\s+(20[0-9][0-9])\s*$"#).unwrap();
 
-    details.deadline.options
-        .iter()
-        .find(|o| o.name.trim().to_ascii_lowercase().starts_with(&opt.to_ascii_lowercase()))
-        .map(|o| &*o.id)
+    // Given the above, let's try to find a suitable place to put the issue.
+
+    // - First, look for the first column that matches the year+quarter we want.
+    //   should match eg "Q3 2023" or "Q1 2024".
+    {
+        let col_id = details.deadline.options
+            .iter()
+            .find(|o| {
+                let Some(caps) = quarter_year_regex.captures(&o.name) else { return false };
+                let q: i32 = caps.get(1).unwrap().as_str().parse().unwrap();
+                let y: i32 = caps.get(2).unwrap().as_str().parse().unwrap();
+                year == y && quarter == q
+            })
+            .map(|o| &*o.id);
+
+        if col_id.is_some() {
+            return col_id
+        }
+    }
+
+    // - Next, look for the first column that matches just the year we want and no quarter.
+    {
+        let year_string = year.to_string();
+        let col_id = details.deadline.options
+            .iter()
+            .find(|o| o.name.trim() == &*year_string)
+            .map(|o| &*o.id);
+
+        if col_id.is_some() {
+            return col_id
+        }
+    }
+
+    // - Is the date prior to the first Qx YYYY column we find? If so, if the first column
+    //   contains a word like "earlier" or "before", put the milestone there.
+    {
+        let first_quarter_year_col = details.deadline.options
+            .iter()
+            .find_map(|o| quarter_year_regex.captures(&o.name));
+
+        if let Some(first_quarter_year_col) = first_quarter_year_col {
+            let q: i32 = first_quarter_year_col.get(1).unwrap().as_str().parse().unwrap();
+            let y: i32 = first_quarter_year_col.get(2).unwrap().as_str().parse().unwrap();
+
+            if year <= y && quarter <= q {
+                // Our issue is equal or before the first quarter we see (but wont be equal because
+                // it didn't match it, above, so it's def before).
+                if let Some(first_col) = details.deadline.options.first() {
+                    let name = first_col.name.to_ascii_lowercase();
+                    if name.contains("earlier") || name.contains("before") || name.contains("prior") {
+                        // The first column exists and has a name which captures earlier issues, so return it:
+                        return Some(&*first_col.id)
+                    }
+                }
+            }
+        }
+    }
+
+    // - Is the date after the last Qx YYYY column we find? If so, if the last column
+    //   contains a word like "later" or "after" or "beyond", put the milestone there.
+    {
+        let last_quarter_year_col = details.deadline.options
+            .iter()
+            .rev()
+            .find_map(|o| quarter_year_regex.captures(&o.name));
+
+        if let Some(last_quarter_year_col) = last_quarter_year_col {
+            let q: i32 = last_quarter_year_col.get(1).unwrap().as_str().parse().unwrap();
+            let y: i32 = last_quarter_year_col.get(2).unwrap().as_str().parse().unwrap();
+
+            if year >= y && quarter >= q {
+                // Our issue is equal or after last quarter we see (but wont be equal because
+                // it didn't match it, above, so it's def after).
+                if let Some(last_col) = details.deadline.options.last() {
+                    let name = last_col.name.to_ascii_lowercase();
+                    if name.contains("later") || name.contains("after") || name.contains("beyond") {
+                        // The last column exists and has a name which captures later issues, so return it:
+                        return Some(&*last_col.id)
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }

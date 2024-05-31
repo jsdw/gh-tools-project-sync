@@ -27,6 +27,8 @@ const REPO_NAMES: &[&str] = &[
     "scale-value",
     "scale-bits",
     "substrate-telemetry",
+    "subxt-explorer",
+    "subxt-team-milestones",
     "desub",
 ];
 
@@ -36,7 +38,7 @@ const TEAM_MEMBERS: &[&str] = &[
     "jsdw",
     "niklasad1",
     "lexnv",
-    "tadeohepperle",
+    "pkhry",
 ];
 
 // The repository within the organisation above to use to create
